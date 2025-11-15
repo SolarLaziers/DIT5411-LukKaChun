@@ -10,9 +10,9 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# Configuration
-project_root = r'D:\AI_Chinese_Handwrting_Recognition'  # Project root folder
-dataset_root = r'D:\Traditional_Chinese_Data'  # Path to extracted dataset folder
+# Configuration - PATHS UPDATED FOR SETUP
+project_root = r'D:\AI_Chinese_Handwrting_Recognition'  # Specified project root folder
+dataset_root = r'D:\AI_Chinese_Handwrting_Recognition\cleaned_data'  # Updated to full dataset inside project
 num_classes = 100  # Set to 13065 for full; use 100 for testing
 img_size = (64, 64)
 batch_size = 32
@@ -42,7 +42,7 @@ def prepare_data():
     subfolders = sorted([d for d in os.listdir(dataset_root) if os.path.isdir(os.path.join(dataset_root, d))])[:num_classes]
     print(f"Using {len(subfolders)} classes: {subfolders[:5]}...")  # Preview
 
-    for class_idx, char_folder in enumerate(subfolders):
+    for char_folder in subfolders:  # No need for class_idx anymore
         char_path = os.path.join(dataset_root, char_folder)
         img_files = sorted(glob.glob(os.path.join(char_path, '*.png')))  # Sort alphabetically
 
@@ -50,9 +50,9 @@ def prepare_data():
             print(f"Warning: {char_folder} has only {len(img_files)} images, skipping.")
             continue
 
-        # Create class subdirs
-        train_class_dir = os.path.join(train_dir, str(class_idx))
-        test_class_dir = os.path.join(test_dir, str(class_idx))
+        # Create class subdirs using character name
+        train_class_dir = os.path.join(train_dir, char_folder)
+        test_class_dir = os.path.join(test_dir, char_folder)
         os.makedirs(train_class_dir, exist_ok=True)
         os.makedirs(test_class_dir, exist_ok=True)
 
@@ -62,9 +62,9 @@ def prepare_data():
 
         # Copy rest to test
         for i in range(40, len(img_files)):
-            shutil.copy(img_files[i], os.path.join(test_class_dir, f'{char_folder}_{i}.png'))
+            shutil.copy(img_files[i], os.path.join(test_dir, char_folder, f'{char_folder}_{i}.png'))
 
-    print(f"Data prepared: {num_classes} classes, train/test dirs created in {project_root}.")
+    print(f"Data prepared: {len(subfolders)} classes, train/test dirs created in {project_root}.")
 
 def create_datagen():
     """Create ImageDataGenerators for train (augmented) and test."""
@@ -103,7 +103,7 @@ def create_datagen():
     )
 
     # Steps for ~200 samples/class (40 originals * 5 augmentations)
-    steps_per_epoch = (40 * num_classes) // batch_size * 5  # Adjust multiplier for more augs
+    steps_per_epoch = (40 * len([d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))])) // batch_size * 5  # Dynamic class count
 
     return train_generator, test_generator, steps_per_epoch
 
