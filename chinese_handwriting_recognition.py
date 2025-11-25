@@ -13,7 +13,7 @@ from datetime import datetime
 # Configuration - WSL PATHS (mount Windows D:\ as /mnt/d)
 project_root = '/mnt/d/AI_Chinese_Handwrting_Recognition'  # WSL mount for your project
 dataset_root = '/mnt/d/AI_Chinese_Handwrting_Recognition/cleaned_data'  # Full dataset
-num_classes = 100  # Set to 13065 for full; use 100 for testing
+num_classes = 13065  # Set to 13065 for full; use 100 for testing
 img_size = (64, 64)
 batch_size = 32
 epochs = 10
