@@ -13,7 +13,7 @@ from datetime import datetime
 # Configuration - WSL PATHS (mount Windows D:\ as /mnt/d)
 project_root = '/mnt/d/AI_Chinese_Handwrting_Recognition'  # WSL mount for your project
 dataset_root = '/mnt/d/AI_Chinese_Handwrting_Recognition/cleaned_data'  # Full dataset
-num_classes = 13065  # Set to 13065 for full; use 100 for testing
+num_classes = 100  # Set to 13065 for full; use 100 for testing
 img_size = (64, 64)
 batch_size = 32
 epochs = 10
@@ -172,10 +172,9 @@ def train_and_evaluate(model_builder, name, train_gen, test_gen, steps_per_epoch
 
     early_stop = callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
     checkpoint = callbacks.ModelCheckpoint(
-        os.path.join(project_root, f'{name}.keras'),  # Changed to .keras
+        os.path.join(project_root, f'{name}.keras'),  # .keras extension auto-triggers format
         monitor='val_accuracy',
-        save_best_only=True,
-        save_format='keras'  # Native Keras format
+        save_best_only=True
     )
 
     history = model.fit(
@@ -217,7 +216,7 @@ if __name__ == "__main__":
     
     # Extract short name (e.g., 'model1' from 'Model1 (Simple)')
     short_name = best_model.split(' (')[0].lower()
-    shutil.copy(os.path.join(project_root, f'{short_name}.keras'), os.path.join(project_root, 'best_model.keras'))  # Changed to .keras
+    shutil.copy(os.path.join(project_root, f'{short_name}.keras'), os.path.join(project_root, 'best_model.keras'))
     print(f"Copied best model: {short_name}.keras → best_model.keras")
 
     # Log results
