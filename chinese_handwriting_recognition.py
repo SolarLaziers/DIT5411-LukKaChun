@@ -10,22 +10,30 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# Configuration - PATHS UPDATED FOR SETUP
-project_root = r'D:\AI_Chinese_Handwrting_Recognition'  # Specified project root folder
-dataset_root = r'D:\AI_Chinese_Handwrting_Recognition\cleaned_data'  # Updated to full dataset inside project
+# Configuration - WSL PATHS (mount Windows D:\ as /mnt/d)
+project_root = '/mnt/d/AI_Chinese_Handwrting_Recognition'  # WSL mount for your project
+dataset_root = '/mnt/d/AI_Chinese_Handwrting_Recognition/cleaned_data'  # Full dataset
 num_classes = 100  # Set to 13065 for full; use 100 for testing
 img_size = (64, 64)
 batch_size = 32
 epochs = 10
-results_file = os.path.join(project_root, 'results.txt')  # Relative to project_root
+results_file = os.path.join(project_root, 'results.txt')
 
-# Ensure project folder exists
+# Ensure project folder exists (WSL-friendly)
 os.makedirs(project_root, exist_ok=True)
-os.chdir(project_root)  # Switch to project dir for relative paths
+os.chdir(project_root)
 print(f"Project set up in: {project_root}")
 
-# Ensure GPU if available
-print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+# GPU setup (enable memory growth to avoid OOM)
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(f"Num GPUs Available: {len(gpus)}")
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print("GPU memory growth enabled.")
+    except RuntimeError as e:
+        print(f"GPU setup error: {e}")
 
 def prepare_data():
     """Prepare train/test splits by copying first 40 images per class."""
@@ -42,12 +50,14 @@ def prepare_data():
     subfolders = sorted([d for d in os.listdir(dataset_root) if os.path.isdir(os.path.join(dataset_root, d))])[:num_classes]
     print(f"Using {len(subfolders)} classes: {subfolders[:5]}...")  # Preview
 
-    for char_folder in subfolders:  # No need for class_idx anymore
+    skipped = 0
+    for char_folder in subfolders:
         char_path = os.path.join(dataset_root, char_folder)
         img_files = sorted(glob.glob(os.path.join(char_path, '*.png')))  # Sort alphabetically
 
         if len(img_files) < 40:
-            print(f"Warning: {char_folder} has only {len(img_files)} images, skipping.")
+            print(f"Warning: Skipped {char_folder} ({len(img_files)} images <40).")
+            skipped += 1
             continue
 
         # Create class subdirs using character name
@@ -62,28 +72,27 @@ def prepare_data():
 
         # Copy rest to test
         for i in range(40, len(img_files)):
-            shutil.copy(img_files[i], os.path.join(test_dir, char_folder, f'{char_folder}_{i}.png'))
+            shutil.copy(img_files[i], os.path.join(test_class_dir, f'{char_folder}_{i}.png'))
 
-    print(f"Data prepared: {len(subfolders)} classes, train/test dirs created in {project_root}.")
+    print(f"Data prepared: {len(subfolders) - skipped} classes (skipped {skipped}), train/test dirs created in {project_root}.")
 
 def create_datagen():
     """Create ImageDataGenerators for train (augmented) and test."""
     train_dir = os.path.join(project_root, 'train')
     test_dir = os.path.join(project_root, 'test')
 
-    # Train with augmentation (simulates ~200 samples/class via steps)
+    # Train with augmentation
     train_datagen = ImageDataGenerator(
         rescale=1./255,
         rotation_range=10,
         shear_range=0.2,
-        zoom_range=0.1,  # 0.9-1.1 scale
+        zoom_range=0.1,
         width_shift_range=0.1,
         height_shift_range=0.1,
         fill_mode='nearest',
-        validation_split=0.0  # No extra split
+        validation_split=0.0
     )
 
-    # Test: only rescale
     test_datagen = ImageDataGenerator(rescale=1./255)
 
     train_generator = train_datagen.flow_from_directory(
@@ -102,8 +111,9 @@ def create_datagen():
         shuffle=False
     )
 
-    # Steps for ~200 samples/class (40 originals * 5 augmentations)
-    steps_per_epoch = (40 * len([d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))])) // batch_size * 5  # Dynamic class count
+    # Dynamic steps based on actual classes
+    actual_classes = len(train_generator.class_indices)
+    steps_per_epoch = (40 * actual_classes) // batch_size * 5
 
     return train_generator, test_generator, steps_per_epoch
 
@@ -156,12 +166,17 @@ def build_model3(input_shape, num_classes):  # With BatchNorm
 
 def train_and_evaluate(model_builder, name, train_gen, test_gen, steps_per_epoch):
     """Train model and return test accuracy."""
-    model = model_builder((img_size[0], img_size[1], 3), num_classes)  # Note: generators yield RGB, but grayscale ok
+    actual_classes = len(train_gen.class_indices)
+    model = model_builder((img_size[0], img_size[1], 3), actual_classes)
     model.summary()
 
-    # Callbacks - Save in project_root
     early_stop = callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
-    checkpoint = callbacks.ModelCheckpoint(os.path.join(project_root, f'{name}.h5'), monitor='val_accuracy', save_best_only=True)
+    checkpoint = callbacks.ModelCheckpoint(
+        os.path.join(project_root, f'{name}.keras'),  # Changed to .keras
+        monitor='val_accuracy',
+        save_best_only=True,
+        save_format='keras'  # Native Keras format
+    )
 
     history = model.fit(
         train_gen,
@@ -171,11 +186,9 @@ def train_and_evaluate(model_builder, name, train_gen, test_gen, steps_per_epoch
         callbacks=[early_stop, checkpoint]
     )
 
-    # Evaluate
     test_loss, test_acc = model.evaluate(test_gen)
     print(f"{name} Test Accuracy: {test_acc:.4f}")
 
-    # Plot history (save in project_root)
     plt.plot(history.history['accuracy'], label='train_acc')
     plt.plot(history.history['val_accuracy'], label='val_acc')
     plt.legend()
@@ -201,11 +214,15 @@ if __name__ == "__main__":
     # Find best
     best_model = max(models_acc, key=models_acc.get)
     best_acc = models_acc[best_model]
-    shutil.copy(os.path.join(project_root, f'{best_model.lower().replace(" (", "").replace(")", "").replace(" ", "")}.h5'), os.path.join(project_root, 'best_model.h5'))
+    
+    # Extract short name (e.g., 'model1' from 'Model1 (Simple)')
+    short_name = best_model.split(' (')[0].lower()
+    shutil.copy(os.path.join(project_root, f'{short_name}.keras'), os.path.join(project_root, 'best_model.keras'))  # Changed to .keras
+    print(f"Copied best model: {short_name}.keras → best_model.keras")
 
     # Log results
     with open(results_file, 'w') as f:
-        f.write(f"Results for {num_classes} classes\n")
+        f.write(f"Results for {len(train_gen.class_indices)} classes\n")
         f.write(f"Date: {datetime.now()}\n\n")
         for name, acc in models_acc.items():
             f.write(f"{name}: {acc:.4f}\n")
