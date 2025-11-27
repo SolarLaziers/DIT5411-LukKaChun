@@ -86,7 +86,3 @@ Training: 10 epochs, batch=32, early stopping (patience=3), GPU-optimized memory
 - WSL GPU: [NVIDIA Guide](https://docs.nvidia.com/cuda/wsl-user-guide/index.html)
 
 Luk Ka Chun | November 25, 2025
-
----
-
-Copy-paste this into your GitHub repo's `README.md`. It's updated with your name, date, Keras format, WSL notes, and placeholder results (update accuracies from `results.txt` after running). If you have specific results or tweaks, let me know!
