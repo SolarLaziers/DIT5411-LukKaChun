@@ -3,7 +3,7 @@
 ## Overview
 This project implements a TensorFlow/Keras-based CNN for recognizing 13,065 traditional Chinese characters using the [Traditional-Chinese-Handwriting-Dataset](https://github.com/AI-FREE-Team/Traditional-Chinese-Handwriting-Dataset). The code is configurable for subsets (tested on first 100 classes for practicality; scalable to full). Key features include data splitting (80/20 per character), on-the-fly augmentation for ~200 effective samples/class, and comparison of 3 CNN architectures. Models are saved in native Keras format (.keras) for modern compatibility.
 
-Developed in WSL2 with Tensorflow GPU support for faster training. Total runtime: ~27 mins for 100 classes on GPU.
+Developed in WSL2 with Tensorflow GPU support for faster training. Total runtime: ~27 mins for 100 classes on GPU for practical testing.
 
 ## Dataset
 - **Source**: Full dataset (~684k 300x300 PNGs, ~60GB) from [chenkenanalytic/handwritting_data_all](https://github.com/chenkenanalytic/handwritting_data_all), extracted with Big5 encoding for proper Chinese folder names (e.g., `丁/`).
